@@ -1,0 +1,553 @@
+<html>
+    <!-- Dragon Age Dialogue Sorting Game based on 2025 Connections by Thomas Colhurst -->
+    <!-- Based on the original at https://thomaswc.com/2025.html -->
+    <!-- Released under a Creative Commons Share Alike with Attribution License -->
+    <!-- See https://creativecommons.org/licenses/by-sa/4.0/ -->
+    <title>Dragon Age Dialogue Sorting Game</title>
+    <style>
+        body {
+  background-color: white; /* Or #fff or #ffffff */
+}
+
+.bigbut {
+width:100%; height:100%; display:block;
+}
+
+.shake {
+  animation: shake 0.5s;
+  animation-iteration-count: 1;
+}
+
+.numCirc {
+    border-radius: 70%;
+    background: white; /* #fff; */
+    border: 2px solid red; /* #666; */
+    color: red; /* #666; */
+    text-align: center;
+}
+
+.red {
+  color: red;
+}
+
+.floating {
+    position: fixed;
+    z-index: 999;
+    background-color: lightblue;
+}
+
+#fireworks {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 10000;
+        }
+
+@keyframes shake {
+  0% { transform: translateX(1px) rotate(0deg); }
+  10% { transform: translateX(-1px) rotate(-1deg); }
+  20% { transform: translateX(-3px) rotate(1deg); }
+  30% { transform: translateX(3px) rotate(0deg); }
+  40% { transform: translateX(1px) rotate(1deg); }
+  50% { transform: translateX(-1px) rotate(-1deg); }
+  60% { transform: translateX(-3px) rotate(0deg); }
+  70% { transform: translateX(3px) rotate(-1deg); }
+  80% { transform: translateX(-1px) rotate(1deg); }
+  90% { transform: translateX(1px) rotate(0deg); }
+  100% { transform: translateX(1px) rotate(-1deg); }
+}
+    </style>
+    <body>
+        <canvas id="fireworks"></canvas>
+<div class="floating">
+   Make 27 groups of 12!  (By stacking quotes from the same person together.) &nbsp;
+   Score: <span id="score">0</span> &nbsp; Mistakes: <span id="mistakes">0</span> &nbsp;
+    <button type="button" id="deselect" style="" disabled onclick="deselect()">Deselect</button>
+</div>
+<div style="padding-top: 16px; position: absolute" id="board"></div>
+
+    </body>
+        <script>
+        // Bugs: 
+        // 1) Unicode not rendering properly inside buttons on Chrome.
+        // Feature requests:
+        // 1) Don't penalize already guessed.
+        
+        // Globals
+        const M = 18;  // Board size
+            
+        var score = 0;
+        var mistakes = 0;
+        
+        var selected = 0;  // The currently selected button, if any.
+        
+        var wordlist = [];  // Actually, a list of (word, category) pairs
+    
+
+        // The categories.
+        
+        var cats = {};
+            
+            // #1
+            cats["Alistair"] = ["One good thing about the Blight is how it brings people together.", "Couldn't you crawl into a bush somewhere and die? That would be great, thanks.", "First it's 'I like you.' Then, zap! Frog time.", "Why do they call it a brothel? There's no broth... or is there?", "Have you ever licked a lamppost in winter?", "Andraste's flaming sword! I know where babies come from!", "Yes. Swooping is bad.", "They say you can get anything here. I once got pickpocketed.", "I once had a very large cat. That's not the point.", "I'll be standing over there. Until the blushing stops.", "I locked myself in a cage, once, when I was a child. For an entire day. Ahh, good times.", "Now that the warm, fuzzy part of the day is over, we can get back to the ritual dismemberments."];
+            
+            // #2
+            cats["Anders"] = ["Well, put me in a dress and call me a templar.", "I'm just not sure I'd want the Maker seeing me shove His bride's head between my legs every morning.", "This is the rule I will most cherish breaking.", "I would drown us in blood to keep you safe.", "I removed the chance of compromise, because there is no compromise.", "Ten years, a hundred years from now, someone like me will love someone like you, and there will be no templars to tear them apart.", "Er... I didn't do it.", "Are you... actually agreeing with me? I thought that was against some kind of policy.", "We're not? What about that time we painted each other's toenails?", "Hey, I'm fond of the Howes! I'm also fond of the Whys, the Whos and the Whats.", "Aren't demons simply spirits with unique and sparkling personalities?", "Here I always figured you'd be the one coming to spring me from someone's dungeon."];
+            
+            // #3
+            cats["Aveline"] = ["It's a real nice night for an evening.", "Protect what matters with everything you have, or you'll have nothing, and deserve it.", "No one tells you how to mourn. And when someone says to move on, you take their hand and say, 'my choice.'", "How about I shove a canary up your coal mine?", "Bit of a tit, your brother.", "We both place others above ourselves. I happen to do it clothed.", "Haven't you got something unholy to do?", "In about ten seconds, I'm just going to smash anything that moves.", "I need three goats and a sheaf of wheat. You'll take them to his mother.", "They will not have you. Not while I breathe.", "If they take your blade, people die. That's not happening again. Stiffen up.", "I don't think I've asked to be the butt of your jokes. (...) Okay, sometimes I have asked for it."];
+
+            // #4
+            cats["Blackwall"] = ["I stole all the beards. And all the power held within. There can be only one.", "Save the fucking world, if pressed.", "That's not compensation. That's a counterweight.", "For... valor.", "It's not right... to want to do good, to be good, and have that turned against you.", "There's always some dog out there, some fucking mongrel that doesn't know how to stay away.", "Now who's twelve?", "Envy her for her ability to love freely, but recognize that envy for what it is.", "You're looking for 'Titsicles.'", "Don't you see what you are to them? Without you, they'd be consumed by despair. We all would.", "You have the world at your feet. Myself included.", "Elfroot. Do elves just call it 'root'?"];
+            
+            // #5
+            cats["Cassandra"] = ["You are a glorified clerk! A bureaucrat!", "Pretend you don't know this about me.", "Ugh.", "Disregard that, and leave us.", "I don't wear 'underpants.'", "I see what must be done, and I do it. I see no point in running around in circles like a dog chasing its tail.", "No, Andraste did not specifically say one should not punch bears.", "I object! There is nothing 'delightful' about me.", "I am blunt and difficult and self-righteous. But my heart lies beneath all that. It yearns for these things I cannot have.", "At some point, power becomes its own master. We cast aside ideals in favor of expedience and tell ourselves it was all necessary.", "It is passion. It is being swept away by the pursuit of an ideal. What is not to like about that?", "Deal. With. It."];
+
+            // #6
+            cats["Cole"] = ["No... I'm not a wooden duck.", "My elbows don't make anyone smile.", "If they're watching, all they want is not to have died. It isn't about you.", "It won't hurt me. It's friendly fire.", "There were so many wonderful hats!", "There was once a man who had bees coming out of his mouth.", "I have to lift my feet, or the rocks make noise when I walk.", "You did lose it. I had to fight a rat for it.", "You hold him so tightly. You let it keep hurting, because you think hurting is who you are.", "It isn't a riddle. I can say what I mean without you understanding.", "My hat wouldn't fit there...", "My shoelaces keep coming untied. Can you talk to them? They don't listen to me."];
+
+             // #7
+             cats["Dorian"] = ["I'm being clucked at by a hen, evidently!", "Corypheus peed on the carpet again! In this analogy, the carpet is Haven.", "I wanted to see you make flowers bloom with your song, just once.", "Send him a fruit basket. Everyone loves those.", "But if you want twenty volumes on whether Divine Galatea took a shit on Sunday, this is evidently the place to find it.", "You can't call me pampered! Nobody's peeled a grape for me in weeks.", "With proper hygiene and grooming. Maybe the three of you should get acquainted.", "Yes, and I'd live longer if I only ate rice and boiled vegetables, but that's just as unlikely.", "I had no idea nugs possess such creepy little feet. The stuff of nightmares.", "Selfish, I suppose, not to want to spend my entire life screaming on the inside.", "Fewer horses, marginally. More cheering, definitely.", "Look at this profile. Isn't it incredible? I picture it in marble."];
+             
+             // #8
+             cats["Fenris"] = ["Nothing could be worse than the thought of living without you.", "I run from room to room, choreographing routines.", "She's courting the man. With a fear reserved for dragons.", "She has chosen poorly.", "We could go together. I'd be happy to sew your mouth shut.", "I shall endeavor to exist with less offense.", "I disavow all knowledge of gambling occurring in my household.", "There are no puppy eyes.", "Mages in glass houses shouldn't throw fireballs.", "Perhaps I'll practice my flattery for your next visit? With any luck I'll become better at it.", "Prove it to yourself. You're convincing no one else.", "Why does fashion not consider the needs of the woman on the go?"];
+
+              // #9
+              cats["Flemeth"] = ["You are required to do nothing, least of all believe.", "One day, someone will summarize the terrible events of your life so quickly.", "There is always a catch! Life is a catch! I suggest you catch it while you can.", "I nudge history, when it's required. Other times, a shove is needed.", "It is only when you fall that you learn whether you can fly.", "Regret is something I know well. Take care not to cling to it, to hold it so close that it poisons your soul.", "Close one's eyes tight or open one's arms wide. Either way, one's a fool.", "Manners! Always in the last place you expect. Like stockings!", "We believe what we want to believe. It's all we ever do.", "Men's hearts hold shadows darker than any tainted creature.", "Be always aware... or is it oblivious? I can never remember.", "Names are pretty, but useless."];
+              
+              // #10
+              cats["Hawke"] = ["If they're not dead, watch out for a bunch of boneless women flopping through the street.", "That's what happens when you try to change things. Things change.", "Whoever's hiding had better come out! Unless you're a dragon. Then you can keep hiding.", "Wounded Coast. I wonder if that's near the Injured Cliffs. Or the Limping Hills. Massive Head Trauma Bay?", "At least it can't get any worse. Today, anyway. It's pretty late.", "Want a sandwich?", "I've been stung by a bee! Maker, am I dying?!", "Helping people and killing people are what I'm best at.", "Looks like the duke... has fallen from grace.", "You're fast! Like a mangy, blighted little mongoose.", "I was drawn in by the intoxicating aroma of stale piss and vomit.", "You know me. I always save the day."];
+              
+              // #11
+              cats["The Iron Bull"] = ["I will bring myself sexual pleasure later, while thinking of this with great respect.", "People don’t always tell the truth when you’re polite. You gotta poke them a bit.", "You might be a weird, squirrelly kid, but you're my weird, squirrelly kid.", "I see all that time on your own has given you a firm grip.", "It's pretty.", "Now 'dead' and 'not dead' are up for debate. That's wonderful.", "There you go again, Seeker, getting an eye full of inquisi-butt.", "Now that you know who you are, you can stop doubting yourself and start hitting crap again.", "I loft you over the front ranks, you land behind them to flank, mayhem ensues!", "Just hit me with the stick, all right?", "This may surprise you, but I really like hitting things.", "Yeah, yeah, my soul's dust. Yours is scattered all over the ground, though, so..."];
+              
+              // #12
+              cats["Isabela"] = ["Apostate prostitutes... Apostitutes!", "Justice is an idea. It makes sense in a world of ideas, but not in our world.", "If you shove your thumb up his ass, I win.", "They don't know me. I know me.", "If we kill them, we get their stuff!", "You wouldn't know honesty if I tied you up and spanked you with it.", "Fine. Gone from B to a real C anyway.", "Come on, haven't you ever wanted to slap me? Just a little?", "I just want it known I never asked for the goat. And the fire was accidental.", "The past's past. I learned that young. If it can't bring you gold or giggles, what's the point in dwelling on it?", "I'm more likely to be shanked in a bar than eaten by an abomination. You can hear those coming a mile away.", "I like big boats. I cannot lie."];
+              
+              // #13
+              cats["Merrill"] = ["Did he have a little sword, or just his claws? I bet he had a dashing cap with a feather in it!", "All spirits are dangerous. I understood that. I'm sorry that you didn't.", "Simple is good. It sneaks up on you, makes you smile. Maybe that should be enough once in a while.", "I've always wanted a baby griffon called Feathers.", "I miss it sometimes, things being certain.", "Be careful what you believe in. A lot of things burn in that fire.", "Um. No. I'm just rambling. Look, a rock!", "He had a marvelous beard, though. I'd never seen one before. I thought a squirrel had grabbed him by the chin.", "Fear makes men more dangerous than magic ever could.", "That can't be true. They must like some things... Sunshine? Butterflies? Rainbows?", "Is that statue lady supposed to be someone important? She looks a bit cross.", "Ohhh! That's very clever, then."];
+              
+              // #14
+              cats["Morrigan"] = ["Why, yes. I am actually a nug in human form. I have come to observe your kind.", "I may be many things, but I will not be the mother you were to me.", "While I may not always prove worthy of your friendship, I will always treasure it.", "Men are always willing to believe two things about a woman: one, that she is weak, and two, that she finds him attractive.", "If your wish is to come up with reasons why something *cannot* be done, we will stand here until the darkspawn are upon us.", "I fear the lad will no longer have the use of his limbs... or his eyes, once I am done with him.", "Shall I consult my capricious nature and divine an answer for you?", "You will regret this and... so will I. And perhaps that is the way it must be.", "Mankind blunders through the world, crushing what it does not understand; elves, dragons, magic... the list is endless.", "You did not read that in a book somewhere, did you? I hope the small letters did not strain you overmuch.", "Remind me to bring you along if we go sailing. The hot air will prove useful.", "Victorious, I see. What a novel result."];
+              
+              // #15
+              cats["Sera"] = ["Bad things should happen to bad people. We find someone not so bad, maybe he’ll end up not so dead.", "Or was he one of the little knives, all serious with his... little knife?", "I'd get a wedge-up something fierce!", "Yeah, I got thoughts. How can you still walk?", "Obey me, arrow in my face.", "I can't fly, you daft tit!", "Well, culture can get in my mouth.", "Right, right... you're set on being sad forever. But then the sun freakin' comes up.", "Knitting is brilliant! It's stabby sewing!", "Always waiting for that fight is way too much work. It's like, doing half the hurt for them.", "The day you died? I ran out of arrows making them pay.", "Bet he calls out 'Elven Glory' when he does it."];
+              
+              // #16
+              cats["Shale"] = ["With a chisel. And a lot of nerve!", "I fail to see how any measure of attractiveness would make one difficult to crush.", "I mean... yes. Well done. With the fighting.", "Hmm. Very well. I wish my shoes to be red.", "Now, let us crush something soft and squishy and watch it fountain blood. That is a girlish thing to want to do, yes?", "It also likes to hide its many weaknesses behind a veil of jocularity.", "Erase the mental image in your head, drunkard, or I will crush it out with my fist!", "I *am* useful. I'm better than any fireball, that I'm sure of.", "If I were king, I would order that all birds be shot out of the sky. I would arm everyone with bows and put them on constant vigil.", "Nothing a good head-crushing wouldn't solve, I say.", "The bard hears music. I hear a wail of banshees that boils my blood.", "Clearly because it is purple. And a hyena."];
+              
+              // #17
+              cats["egg"] = ["Ah, yes. Winchiness. A point I had not considered.", "It is not as though I know *who* filled my bedroll with lizards.", "Please, speak up! I cannot hear you over your outfit!", "I would treasure the chance to be wrong once again, my friend.", "Ah, wait. My memory misleads me. You were not there.", "No, I am declaring it. It was not a subject for debate.", "How small the pain of one man seems when weighed against the endless depths of memory, of feeling, of existence.", "What if it isn't? What if you wake up to find that the future you shaped is worse than what was?", "Just remember, an enemy can attack, but only an ally can betray you. Betrayal is always worse.", "No real god need prove himself. Anyone who tries is mad or lying.", "Just to be clear, you wish me to manipulate the delicate balance of the primordial energy of the Fade... faster?", "I suspect you have questions."];
+              
+              // #18
+              cats["Sten"] = ["Congratulations. You found a wastebin.", "Either you have an enviable memory or a pitiable life, to know nothing of regret.", "You will need armor, I think. And a helmet. And something to bite down on. How strong are human teeth?", "You mean that I should remark upon the weather before I cut off a man's head?", "There was a child, a fat slovenly thing, in the last village we passed. I relieved him of these confections.", "Interesting strategy. Tell me, do you intend to keep going north until it becomes south, and attack the archdemon from the rear?", "Why would such a small people build things so tall? They must own an impressive array of ladders.", "No honor, no gratitude, slight grasp of the obvious... Fine ruler you have there.", "Destiny is superstitious nonsense. Life is not a journey that ends with you arriving or not arriving at the proper destination. Life is what you do. Life is the duties you fulfill.", "If I were indeed hostile, you would be bleeding.", "On good days, I posed riddles to the passersby, offering them treasures in exchange for correct answers.", "People cannot be summarized for easy reference, in the manner of 'the elves are a lithe, pointy eared people who excel at poverty.'"];
+              
+              // #19
+              cats["Varric"] = ["Look, I have to complain or you'll forget I'm here and trip over me.", "Well, how about a giant sign that just says 'Don't'? You could hit people with it.", "Oh, so we're saving the world through bullshit now?", "Argh, I'm a darkspawn! Dumat! Dumat!", "I think I'm sick of mages and templars.", "The only choices you get are to lie down and die or keep going. He kept going. That's as close to beating the world as anyone gets.", "A good story, you don't really write. It was always there. You just uncover it.", "Do you know how much I suffer under your gaze? I am a person, not an object!", "You're actually joking. Alert the Chantry! They need to put this on the calendar!", "I thought you'd have noticed by now: I lie a lot.", "Well, it's not a good story unless the hero dies.", "If he pulls a dragon out of his ass, I'm leaving!"];
+              
+              // #20
+              cats["Vivienne"] = ["Do you sleep with your mouth open? I should avoid that. It was heavy with eggs. Skitter, skitter.", "Magic is dangerous just as fire is dangerous. Anyone who forgets this truth gets burned.", "My dear, if I didn't want people to fear me, I wouldn't dress like this.", "Unwashed apostate hobo, more specifically.", "Perhaps your old furniture was full of lice and fleas.", "Such snapping for a fish without teeth.", "That which makes you different can be a burden or a source of strength, my dear. Which is up to you.", "You are barbarians, darling, but that's part of your charm.", "Darling, it's your bottom. Again. As bony and sad as it was the last dozen times you've displayed it.", "You're angry. Good. Anger can save you when everything else is gone.", "You recognized yourself there? Good.", "You know such rudeness is... intolerable."];
+              
+              // #21
+              cats["Zevran"] = ["Magic can kill. Knives can kill. Even small children, launched at great speed, can kill.", "Nice vase. I should get one for my house.", "You have... never wooed? Not once? You are woo-less, as it were?", "I know. I am terrible and it makes me sad. May I rest my head in your bosom? I wish to cry.", "Your husband? Dead. It was horrible and so forth.", "For the chance to be by your side, I would storm the dark city itself.", "The survival rate of ingrates is remarkably low, so I hear.", "Escape tunnels make such very handy entrance tunnels, don't you think?", "We all do our share of murdering around here, don't we?", "I'm still waiting for a reason not to slit her throat and toss her in the river. I haven't heard it yet.", "Well, I just wanted to report that I failed my mission... I'm terribly broken up over it.", "One does not do what I do and fear death so very greatly."];
+
+              // #22
+              cats["Carver"] = ["I don't hate you because you're a mage. I hate you because you won't shut up about it.", "Seven hundred years of people sitting around saying, 'wow, look how great we used to be.'", "I can make it bark.", "A hundred ways to run, and we choose backward.", "Maybe in another year I could work my way up to pissboy.", "Turnips are too good for that bastard.", "Le Baron du Stinky-Cheese...", "You want me to suffer some poncy git who needs two servants to wipe his own ass?", "It's more fun hating each other, isn't it.", "Sure, keep teasing. I'll show you how much of a pup I am.", "Have we met a templar who isn't a colossal prig?", "I have enough trouble being overshadowed as it is. I don't need to get caught under an imaginary me, too."];
+
+              // #23
+              cats["Oghren"] = ["Well, shave my back and call me an elf.", "Why? Has the little pike-twirler taken offense?", "Let the stone turn red from the blood of heroes. Today I will be the warrior you taught me to be.", "No one's looked at me and seen honor in a long time.", "Let's show them our hearts, and then show them theirs.", "Good news, lady. You're single.", "I'm the pretty one.", "You're telling me you never gave your blade the old spit-shine?", "It's got its sallow, clammy hands all over my doo-dads, touching my junk!", "So, uh, what did you do with her legs?", "My mother told me never to trust anything that could make turds larger than you are.", "I can smell purity a mile away. It's a talent."];
+
+              // #24
+              cats["Leliana"] = ["Hush! Just look pretty.", "Is that what you want from us? Blood? To die so that your will is done?", "I will die first. Or you will.", "It's not a real party until someone's smallclothes are pinned to a Chantry board.", "Yes, yes. I don't see those trousers coming down, however, do I?", "The Maker wants His children to be happy. Would He have created in us the capacity for love if He did not intend for us to find it?", "Softie!", "Though darkness closes, I am shielded by flame. Andraste, guide me. Maker, take me to your side!", "The ruffles were very festive.", "The Maker looks into your heart, no? So it doesn't matter what your lips say as long as your heart is true.", "People aren't sensible creatures all the time. And stories are accountable to no one.", "I do not regret any of the pain, the anger, the loneliness, because it brought me to you."];
+
+              // #25
+              cats["Wynne"] = ["You can cry well away from my bosom, I'm certain.", "It wouldn't eat me anyhow. Tough and stringy. You, on the other hand... ought to be worried.", "Aww, look, you're all red and mottled. How cute.", "I will not lie motionless in a bed with coverlets up to my chin, waiting for death to claim me.", "Dear Maker, I do hate being compared to wine. Or cheese. Especially cheese.", "Oh, I see. So what guidance did you find in those swaying hips, hmm?", "Eavesdropping is not considered very polite, dear.", "Death will take us when it wills and till then, we shall live, truly live.", "I am not a wizened old crone just yet.", "Advice? Never. You young ones know all there is to know about the world, anyway.", "It is my belief that a man who ties his own hands behind his back should not cry foul that there is no one left to defend his king.", "Wardogs need to be pretty too, don't they? Yes, you want to be pretty, pretty dog."];
+
+              // #26
+              cats["Cullen"] = ["There's a shield in your hand. Block with it. If this man were your enemy, you'd be dead.", "If you squint, Lake Calenhad is shaped like a bunny.", "No. This is ridiculous.", "When the time comes, you will be thrown into his path again. Andraste preserve me, I must send you to him.", "Me? I, um... no. I've taken no such vows. Maker's breath, can we speak of something else?", "They were last seen at the Blooming Rose, but I had no luck interrogating the... ah... young ladies... there.", "I should be taking it! I should be taking it.", "We’re dying, but we can decide how. Many don't get that choice.", "I should inspect the condition of the trebuchets. They must be calibrated to reach the proper range.", "If we are to have a chance -- if YOU are to have a chance -- let that thing hear you.", "Really? Because I just won. And I feel fine.", "Forgive me. I doubt you came here for a lecture."];
+
+              // #27
+              cats["Josephine"] = ["Common ground is the start of all negotiations.", "I realize the cabinet is quite valuable, Comte, but surely...", "I cannot move my legs.", "After you returned from the bogs, we discovered this man attacking. The building. With a goat.", "Her crimes negated any claim to... Forgive me. There is an odor.", "Her ladyship tends to confuse metaphors when she’s excitable.", "Never bet against an Antivan, Commander.", "Never underestimate the enmity of those for whom outrage is a sport.", "There is a difference between luxury and a building with no holes in the walls.", "Right on the parlor floor. In front of everyone at the soiree! Who does such a thing in front of their guests?", "Well, if you meant to draw a blush to my cheeks, you’ve completely succeeded.", "We've gathered many favors among the nobility. They will be gently reminded of this."];
+                         
+                          
+       
+            // Functions
+            
+            function deselect() {
+              if (selected != 0) {
+                selected.style = "";
+                selected = 0;
+                document.getElementById("deselect").disabled = true;
+              }
+            }
+            
+            function stringToLightColor(str) {
+              let hash = 0;
+              for (let i = 0; i < str.length; i++) {
+                hash = str.charCodeAt(i) + ((hash << 5) - hash);
+              }
+
+              const h = Math.abs(hash) % 360;
+              const s = 70;
+              const l = 80 + (Math.abs(hash) % 21); 
+
+              const lDev = l / 100;
+              const a = (s * Math.min(lDev, 1 - lDev)) / 100;
+  
+              const f = (n) => {
+                const k = (n + h / 12) % 12;
+                const color = lDev - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
+                return Math.round(255 * color).toString(16).padStart(2, "0");
+              };
+
+              return `#${f(0)}${f(8)}${f(4)}`;
+            }
+            
+            function getRandomHexColor() {
+              return '#' + Math.floor(Math.random() * 16777215).toString(16);
+            }
+            
+            function finishCategory(b) {
+              b.innerHTML  =  '<b>' + b.category + '</b>';
+              b.disabled = true;
+              b.style.background= stringToLightColor(b.category);
+            }
+            
+            function checkCategories() {
+              const wordDict = new Map();
+              // Check that each category has 12 entries.
+              for (const [key, value] of Object.entries(cats)) {
+                if (value.length < 12) {
+                  alert(`Entry for ${key} has length ${value.length}`);
+                }
+                for (let i = 0; i < 12; i++) {
+                  wordlist.push([value[i], key]);
+                  if (wordDict.has(value[i])) {
+                      alert(`Duplicate word ${value[i]}`);
+                  }
+                  else {
+                      wordDict.set(value[i], true);
+                  }
+                }
+              }
+            }
+            
+            function shuffleArray(array) {
+              for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+              }
+            }
+            
+            function saveState() {
+                localStorage.clear();
+                
+                localStorage.setItem('score', score + '');
+                localStorage.setItem('mistakes', mistakes + '');
+                
+                var t = document.getElementById('the_table');
+                for (let i = 0; i < t.rows.length; i++) {
+                  let row = t.rows[i];
+                  for (let j = 0; j < row.cells.length; j++) {
+                    let cell = row.cells[j];
+                    let button = cell.firstChild;
+                    localStorage.setItem(`${i}_${j}_category`, button.category);
+                    localStorage.setItem(`${i}_${j}_cluster`, JSON.stringify(button.cluster));
+                    localStorage.setItem(`${i}_${j}_innerHTML`, button.innerHTML);
+                    localStorage.setItem(`${i}_${j}_title`, button.title);
+                  }
+                }
+                
+            }
+            
+            function putWordsInBoard() {
+              shuffleArray(wordlist);
+              var currentWordIndex = 0;
+              var table = document.getElementById("the_table");
+              for (let i = 0, row; row = table.rows[i]; i++) {
+                for (let j = 0, col; col = row.cells[j]; j++) {
+                  var button = col.firstElementChild;
+                  // button.pos = currentWordIndex;
+                  button.textContent = wordlist[currentWordIndex][0];
+                  button.category = wordlist[currentWordIndex][1];
+                  button.cluster = [button.textContent];
+                  currentWordIndex += 1;
+                }
+              }
+            }
+            
+            function startFireworks() {
+              const canvas = document.getElementById('fireworks');
+              const ctx = canvas.getContext('2d');
+              let w, h;
+              let particles = [];
+              let fireworks = [];
+
+              function resize() {
+                w = canvas.width = window.innerWidth;
+                h = canvas.height = window.innerHeight;
+              }
+              window.addEventListener('resize', resize);
+              resize();
+
+              class Firework {
+                constructor() {
+                    this.x = Math.random() * w;
+                    this.y = h;
+                    this.tx = Math.random() * w;
+                    this.ty = Math.random() * (h / 2);
+                    this.color = `hsl(${Math.random() * 360}, 100%, 50%)`;
+                    this.speed = 2 + Math.random() * 2;
+                    this.angle = Math.atan2(this.ty - this.y, this.tx - this.x);
+                    this.vx = Math.cos(this.angle) * this.speed;
+                    this.vy = Math.sin(this.angle) * this.speed;
+                    this.exploded = false;
+                }
+
+                update() {
+                    this.x += this.vx;
+                    this.y += this.vy;
+                    if (this.vy < 0 && this.y < this.ty) {
+                        this.explode();
+                    } else if (this.vy > 0 && this.y > this.ty) { // Should technically not happen with simple upward movement
+                         this.explode();
+                    }
+                }
+
+                explode() {
+                    this.exploded = true;
+                    for (let i = 0; i < 50; i++) {
+                        particles.push(new Particle(this.x, this.y, this.color));
+                    }
+                }
+
+                draw() {
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, 3, 0, Math.PI * 2);
+                    ctx.fillStyle = this.color;
+                    ctx.fill();
+                }
+              }
+
+              class Particle {
+                constructor(x, y, color) {
+                    this.x = x;
+                    this.y = y;
+                    this.color = color;
+                    const angle = Math.random() * Math.PI * 2;
+                    const speed = Math.random() * 3;
+                    this.vx = Math.cos(angle) * speed;
+                    this.vy = Math.sin(angle) * speed;
+                    this.alpha = 1;
+                    this.decay = Math.random() * 0.015 + 0.005;
+                }
+
+                update() {
+                    this.x += this.vx;
+                    this.y += this.vy;
+                    this.vy += 0.05; // gravity
+                    this.alpha -= this.decay;
+                }
+
+                draw() {
+                    ctx.save();
+                    ctx.globalAlpha = this.alpha;
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, 2, 0, Math.PI * 2);
+                    ctx.fillStyle = this.color;
+                    ctx.fill();
+                    ctx.restore();
+                }
+              }
+
+              function loop() {
+                // Clear with a trail effect
+                ctx.globalCompositeOperation = 'destination-out';
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.1)'; 
+                ctx.fillRect(0, 0, w, h);
+                ctx.globalCompositeOperation = 'lighter';
+
+                // Launch new firework randomly
+                if (Math.random() < 0.05) {
+                    fireworks.push(new Firework());
+                }
+
+                // Update and draw fireworks
+                for (let i = fireworks.length - 1; i >= 0; i--) {
+                    fireworks[i].update();
+                    fireworks[i].draw();
+                    if (fireworks[i].exploded) {
+                        fireworks.splice(i, 1);
+                    }
+                }
+
+                // Update and draw particles
+                for (let i = particles.length - 1; i >= 0; i--) {
+                    particles[i].update();
+                    particles[i].draw();
+                    if (particles[i].alpha <= 0) {
+                        particles.splice(i, 1);
+                    }
+                }
+
+                requestAnimationFrame(loop);
+              }
+
+              loop();
+            }
+            
+            function setUpBoard() {
+              // Just sets up the dom elements; does not put words in them.
+              var b = document.getElementById("board");   
+              const table = document.createElement('table');
+              table.id = 'the_table';
+              for (let i = 0; i < M; i++) {
+                const tr = document.createElement('tr');
+                tr.classList.add('.row');
+                for (let j = 0; j < M; j++) {
+                   const td = document.createElement('td');
+                   td.class = "bigbut";
+                   const button = document.createElement('button');
+                   button.class = "bigbut"
+                   button.onclick = function() {
+                       if (selected == button) {
+                         deselect();
+                         return;
+                       }
+                       button.style = "filter: invert(100%)";
+                       
+                       if (selected == 0) {
+                           selected = button;
+                           document.getElementById("deselect").disabled = false;
+                           return;
+                       }
+                       
+                       document.getElementById("deselect").disabled = true;
+
+                       if (button.category == selected.category) {
+                         
+                         firstbut = button;
+                         secondbut = selected;
+                         
+                         // Deselect
+                         selected.style = "";
+                         button.style = "";
+                         selected = 0;
+                         score = score + 1;
+                         
+                         // Merge
+                         firstbut.cluster = firstbut.cluster.concat(secondbut.cluster);
+                         // console.log(firstbut.cluster);
+                         if (firstbut.cluster.length == 2) {
+                           firstbut.innerHTML = '<b>' + firstbut.cluster.join('; ') + '</b>';
+                         } else {
+                           firstbut.innerHTML = '<b>' + firstbut.cluster.slice(0, 2).join(', ') + ', ... <span class="red">[' + firstbut.cluster.length + ']</span></b>';
+                           firstbut.title = firstbut.cluster.join('\n');
+                         }
+                         if (firstbut.cluster.length == 12) {
+                             finishCategory(firstbut);
+                         }
+                         
+                         document.getElementById("score").textContent = score;
+                         // Remove the button for the eliminated word.
+                         secondbut.title = '';
+                         // if (currentWordIndex < wordlist.length) {
+                         //  secondbut.textContent = wordlist[currentWordIndex][0];
+                         //  secondbut.category = wordlist[currentWordIndex][1];
+                         // secondbut.cluster = [secondbut.textContent];
+                         //  currentWordIndex += 1;
+                         // } else {
+                             secondbut.textContent = '';
+                             secondbut.disabled = true;
+                             
+                             // Remove not just the button but the entire <td>.
+                             secondbut.parentElement.remove();
+                        // }
+                         
+                       } else {
+                         mistakes = mistakes + 1;
+                         document.getElementById("mistakes").textContent = mistakes;
+                         // Shake it
+                         button.classList.add('shake');
+                         selected.classList.add('shake');
+                         
+                         button.addEventListener('animationend', () => {
+                           button.classList.remove('shake');
+                           button.style = "";
+                         }, { once: true });
+  
+                         old_selected = selected;
+                         old_selected.addEventListener('animationend', () => {
+                           old_selected.classList.remove('shake');
+                           old_selected.style = "";
+                         }, { once: true });
+  
+                         selected = 0;
+                       }
+                       saveState();
+                       if (score == 1980) {
+                           window.alert("You win!!");
+                           startFireworks();
+                       }
+                   };
+                   td.appendChild(button);
+                   tr.appendChild(td);
+                }
+                table.appendChild(tr);
+              }
+              
+              document.getElementById("board").appendChild(table);
+            }
+            
+            function loadState() {
+                s = localStorage.getItem('score');
+                if (s == null) {
+                    putWordsInBoard();
+                    return;
+                }
+                score = Number(s);
+                document.getElementById("score").textContent = score;
+                
+                s = localStorage.getItem('mistakes');
+                if (s == null) {
+                    putWordsInBoard();
+                    return;
+                }
+                mistakes = Number(s);
+                document.getElementById("mistakes").textContent = mistakes;
+                
+                var currentWordIndex = 0;
+                var table = document.getElementById("the_table");
+                var cells_to_remove = [];
+                for (let i = 0, row; row = table.rows[i]; i++) {
+                  for (let j = 0, col; col = row.cells[j]; j++) {
+                    var button = col.firstElementChild;
+                    // button.pos = currentWordIndex;
+                    button.category = localStorage.getItem(`${i}_${j}_category`);
+                    button.cluster = JSON.parse(localStorage.getItem(`${i}_${j}_cluster`));
+                    if (Array.isArray(button.cluster) && button.cluster.length == 12) {
+                        finishCategory(button);
+                    }
+                    button.innerHTML = localStorage.getItem(`${i}_${j}_innerHTML`);
+                    button.title = localStorage.getItem(`${i}_${j}_title`);
+                    currentWordIndex += 1;
+                    if (button.innerHTML == '') {
+                        // No word here, remove the whole <td>
+                        cells_to_remove.push(col);
+                    }
+                  }
+                }
+                for (let i = 0; i < cells_to_remove.length; i++) {
+                    cells_to_remove[i].remove();
+                }
+            }
+            
+            checkCategories();
+            setUpBoard();
+            loadState();
+        </script>
+
+</html>
